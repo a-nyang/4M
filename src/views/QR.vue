@@ -1,9 +1,20 @@
 <template>
   <div class="container">
     <div class="input-area" :class="{ 'is-active': hasQR }">
+      <div class="tab-menu">
+        <button
+            :class="['tab-btn', { active: mode === 'wifi' }]"
+            @click="switchMode('wifi')"
+        >🛜 Wi-Fi</button>
+        <button
+            :class="['tab-btn', { active: mode === 'url' }]"
+            @click="switchMode('url')"
+        >🔗 URL</button>
+      </div>
+
       <div class="input-content">
         <div class="form-group">
-          <div class="input-row">
+          <div v-if="mode === 'wifi'" class="input-row">
             <input v-model="wifi.ssid" type="text" placeholder="와이파이 이름 (SSID)" class="custom-input" />
             <input v-model="wifi.password" type="password" placeholder="비밀번호" class="custom-input" />
             <select v-model="wifi.type" class="custom-select">
@@ -12,25 +23,30 @@
               <option value="nopass">암호 없음</option>
             </select>
           </div>
+
+          <div v-else class="input-row">
+            <input v-model="url" type="text" placeholder="https://example.com" class="custom-input url-field" />
+          </div>
         </div>
       </div>
-      <button @click="generateQR" class="generate-btn" :disabled="!wifi.ssid">
-        QR 생성하기
+
+      <button @click="generateQR" class="generate-btn" :disabled="isBtnDisabled">
+        {{ mode === 'wifi' ? 'Wi-Fi QR 생성하기' : 'URL QR 생성하기' }}
       </button>
     </div>
 
     <section v-show="hasQR" class="result-section">
       <div class="summary-card">
         <div class="stats">
-          <span class="badge primary">Wi-Fi Access QR Code</span>
-          <span class="file-info">네트워크: <strong>{{ wifi.ssid }}</strong></span>
+          <span class="badge primary">{{ mode === 'wifi' ? 'Wi-Fi Access' : 'Web Link' }}</span>
+          <span class="file-info text-truncate">대상: <strong>{{ displayInfo }}</strong></span>
         </div>
-        <button @click="downloadQR" class="download-btn">📥 QR 이미지 다운로드</button>
+        <button @click="downloadQR" class="download-btn">📥 이미지 다운로드</button>
       </div>
 
       <div class="qr-display-container">
         <div class="qr-box">
-          <p>스캔하여 바로 연결</p>
+          <p>{{ mode === 'wifi' ? '스캔하여 바로 연결' : '스캔하여 주소로 이동' }}</p>
           <div class="qr-wrapper">
             <qrcode-vue
                 v-if="qrValue"
@@ -38,7 +54,6 @@
                 :size="240"
                 level="H"
                 render-as="canvas"
-                ref="qrCanvas"
             />
           </div>
         </div>
@@ -48,12 +63,13 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import QrcodeVue from 'qrcode.vue';
 
+const mode = ref('wifi'); // 'wifi' 또는 'url'
 const hasQR = ref(false);
 const qrValue = ref('');
-const qrCanvas = ref(null);
+const url = ref('');
 
 const wifi = reactive({
   ssid: '',
@@ -61,21 +77,49 @@ const wifi = reactive({
   type: 'WPA'
 });
 
-// 생성하기 버튼 클릭 시 로직
-const generateQR = () => {
-  if (!wifi.ssid) return;
+// 모드 전환 시 초기화
+const switchMode = (newMode) => {
+  mode.value = newMode;
+  hasQR.value = false;
+  qrValue.value = '';
 
-  // 와이파이 접속 규격 문자열 생성
-  qrValue.value = `WIFI:S:${wifi.ssid};T:${wifi.type};P:${wifi.password};;`;
+  // 1. URL 입력값 초기화
+  url.value = '';
+
+  // 2. Wi-Fi 객체 초기화
+  wifi.ssid = '';
+  wifi.password = '';
+  wifi.type = 'WPA';
+};
+
+const getCurrentURL = () => {
+  url.value = window.location.href;
+};
+
+// 버튼 비활성화 로직
+const isBtnDisabled = computed(() => {
+  return mode.value === 'wifi' ? !wifi.ssid : !url.value;
+});
+
+// 결과창에 보여줄 텍스트 정보
+const displayInfo = computed(() => {
+  return mode.value === 'wifi' ? wifi.ssid : url.value;
+});
+
+const generateQR = () => {
+  if (mode.value === 'wifi') {
+    qrValue.value = `WIFI:S:${wifi.ssid};T:${wifi.type};P:${wifi.password};;`;
+  } else {
+    qrValue.value = url.value;
+  }
   hasQR.value = true;
 };
 
 const downloadQR = () => {
-  // qrcode-vue는 내부적으로 canvas를 사용함
   const canvas = document.querySelector('.qr-wrapper canvas');
   if (canvas) {
     const link = document.createElement('a');
-    link.download = `wifi_qr_${wifi.ssid}.png`;
+    link.download = `qr_${mode.value}_${displayInfo.value}.png`;
     link.href = canvas.toDataURL();
     link.click();
   }
@@ -83,66 +127,84 @@ const downloadQR = () => {
 </script>
 
 <style scoped>
+/* 기존 스타일 유지 + 탭 스타일 추가 */
 .container { max-width: 1000px; margin: 0 auto; padding: 20px; font-family: 'Pretendard', sans-serif; }
+
+.tab-menu {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  background: #e2e8f0;
+  padding: 5px;
+  border-radius: 12px;
+}
+
+.tab-btn {
+  padding: 10px 25px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #64748b;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  background: white;
+  color: #3b82f6;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.url-field { width: 350px !important; }
+
+.current-btn {
+  padding: 0 15px;
+  background: #64748b;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
 
 .input-area {
   border: 2px solid #d1d5db; border-radius: 16px; padding: 40px;
   background: #f9fafb; transition: all 0.3s;
-  display: flex; flex-direction: column; align-items: center; gap: 25px;
+  display: flex; flex-direction: column; align-items: center;
 }
-.input-area.is-active { padding: 20px 40px; background: #fff; }
+.input-area.is-active { padding: 30px 40px; background: #fff; }
 
-.input-content { display: flex; align-items: center; gap: 20px; width: 100%; justify-content: center; }
-.icon { font-size: 2.5rem; }
-
-.input-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.input-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; animation: fadeIn 0.3s; }
 
 .custom-input, .custom-select {
   padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px;
-  font-size: 1rem; outline: none; transition: border 0.2s;
+  font-size: 1rem; outline: none;
 }
-.custom-input:focus { border-color: #3b82f6; }
 
 .generate-btn {
+  margin-top: 25px;
   background: #3b82f6; color: white; border: none; padding: 12px 30px;
   border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1.1rem;
-  transition: transform 0.2s, background 0.2s;
 }
-.generate-btn:hover:not(:disabled) { background: #2563eb; transform: translateY(-2px); }
+
 .generate-btn:disabled { background: #94a3b8; cursor: not-allowed; }
 
+.text-truncate {
+  max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: inline-block; vertical-align: middle;
+}
+
+/* 나머지 기존 애니메이션 및 스타일 유지 */
 .result-section { margin-top: 25px; animation: fadeIn 0.5s ease-out; }
 .summary-card {
   display: flex; justify-content: space-between; align-items: center;
   background: #f8fafc; padding: 15px 20px; border-radius: 12px; margin-bottom: 15px;
 }
+.badge.primary { background: #3b82f6; color: white; padding: 4px 12px; border-radius: 20px; font-weight: 600; }
+.qr-display-container { display: flex; justify-content: center; margin-top: 20px; }
+.qr-box { text-align: center; background: #fff; padding: 30px; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+.qr-wrapper { padding: 10px; background: white; display: inline-block; }
+.download-btn { background: #10b981; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; }
 
-.badge.primary { background: #3b82f6; color: white; padding: 4px 12px; border-radius: 20px; font-weight: 600; margin-right: 15px; }
-
-.qr-display-container {
-  display: flex; justify-content: center; margin-top: 20px;
-}
-
-.qr-box {
-  text-align: center; background: #fff; padding: 30px;
-  border-radius: 16px; border: 1px solid #e5e7eb;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-.qr-box p { font-weight: bold; margin-bottom: 20px; color: #4b5563; }
-
-.qr-wrapper {
-  padding: 10px; background: white; display: inline-block;
-}
-
-.download-btn {
-  background: #10b981; color: white; border: none; padding: 10px 18px;
-  border-radius: 8px; cursor: pointer; font-weight: bold;
-}
-
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-@media (max-width: 600px) {
-  .input-row { flex-direction: column; width: 100%; }
-  .custom-input, .custom-select { width: 100%; }
-}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 </style>

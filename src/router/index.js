@@ -20,12 +20,12 @@ const routes = [
         path: '/qr',
         name: 'QR',
         component: QR,
-        meta: { title: 'QR', emoji: '📶' }
+        meta: { title: 'QR', emoji: '𖣯' }
     }
 ];
 
 export const router = createRouter({
-    history: createWebHistory(),
+    history: createWebHistory('/4M/'),
     routes
 });
 
