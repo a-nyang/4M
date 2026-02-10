@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import Counter from '../views/Counter.vue';
 import Liner from '../views/Liner.vue';
+import QR from '../views/QR.vue'
 
 const routes = [
     {
@@ -14,6 +15,12 @@ const routes = [
         name: 'Liner',
         component: Liner,
         meta: { title: 'Liner', emoji: '📏' }
+    },
+    {
+        path: '/qr',
+        name: 'QR',
+        component: QR,
+        meta: { title: 'QR', emoji: '📶' }
     }
 ];
 

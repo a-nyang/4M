@@ -3,6 +3,7 @@
     <nav class="tool-nav">
       <router-link to="/" class="nav-btn" active-class="active">📊 Excel Processor</router-link>
       <router-link to="/liner" class="nav-btn" active-class="active">✒️ Liner</router-link>
+      <router-link to="/qr" class="nav-btn" active-class="active">🔗 QR</router-link>
     </nav>
 
     <router-view />
